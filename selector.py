@@ -31,6 +31,17 @@ CADENCE_DAYS = 3
 # calendar dates regardless of when `plan` happens to run.
 CADENCE_EPOCH = date(2024, 1, 1)
 
+# Meta's docs claim scheduled_publish_time is accepted up to 75 days out,
+# but real testing against this Page's token showed the actual enforced
+# window is much shorter — a post 24 days out succeeded, one 30 days out
+# was rejected with "(#100) The specified scheduled publish time is
+# invalid.". This is a Standard-Access token (see CLAUDE.md); the 75-day
+# figure likely assumes Advanced Access review. 24 is the last value
+# confirmed to work, used here with no further safety margin subtracted
+# since it's already an empirical floor, not a documented ceiling. Revisit
+# upward if/when Advanced Access is granted for pages_manage_posts.
+MAX_SCHEDULE_DAYS = 24
+
 SCHEDULE_TIMEZONE = os.getenv("SCHEDULE_TIMEZONE", "UTC")
 SCHEDULE_HOUR = int(os.getenv("SCHEDULE_HOUR", "12"))
 
@@ -95,7 +106,7 @@ def _queue_item(post: dict, d: date) -> dict:
     }
 
 
-def plan_queue(days: int = 7, start: date | None = None, persist: bool = True) -> list[dict]:
+def plan_queue(days: int = MAX_SCHEDULE_DAYS, start: date | None = None, persist: bool = True) -> list[dict]:
     """Plans queue items for [start, start + days). `start` defaults to
     tomorrow so a scheduled_publish_time is never already in the past.
     Returns the newly-planned queue items (not previously-planned ones)."""

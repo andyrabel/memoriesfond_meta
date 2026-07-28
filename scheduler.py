@@ -13,7 +13,10 @@ Usage:
 
 `plan` is selector.py's rotation logic (day-specific posts on their calendar
 date, otherwise one random eligible post every 3 days, never more than one
-post/day) writing to scheduled/queue.json. `schedule` reads a queue file —
+post/day) writing to scheduled/queue.json. Each run tops the schedule back up
+to the Graph API's full 75-day scheduling window (see selector.MAX_SCHEDULE_DAYS),
+not just the coming week, so a weekly `plan` keeps it topped up rather than
+covering only the days since the last run. `schedule` reads a queue file —
 by default the same scheduled/queue.json `plan` writes to, but any hand-built
 queue file works too. Each queue item is a dict:
   {
@@ -160,7 +163,8 @@ def cmd_schedule(args):
         require_env("FB_PAGE_ID", "FB_PAGE_TOKEN")
         poster = FacebookPoster(page_id=os.environ["FB_PAGE_ID"], page_token=os.environ["FB_PAGE_TOKEN"])
 
-    scheduled_count = failed_count = skipped_count = 0
+    scheduled_count = failed_count = skipped_count = pending_count = 0
+    max_horizon_seconds = selector.MAX_SCHEDULE_DAYS * 86400
 
     for item in queue:
         item_id = item["id"]
@@ -170,6 +174,19 @@ def cmd_schedule(args):
             continue
 
         scheduled_ts = parse_scheduled_time(item["scheduled_publish_time"])
+
+        # Skip without calling the Graph API at all if this is still further
+        # out than the empirically-known-good window (selector.MAX_SCHEDULE_DAYS):
+        # a photo post would otherwise upload an orphaned unpublished photo
+        # to the Page every run before failing at the /feed step. Left out of
+        # state entirely so it's retried automatically once within range.
+        if scheduled_ts - datetime.now(timezone.utc).timestamp() > max_horizon_seconds:
+            print(f"  {item_id}  [{item['type']}] scheduled for {item['scheduled_publish_time']} — "
+                  f"more than {selector.MAX_SCHEDULE_DAYS} days out, skipping for now "
+                  "(will retry once it's closer)")
+            pending_count += 1
+            continue
+
         print(f"  {item_id}  [{item['type']}] scheduled for {item['scheduled_publish_time']} ({scheduled_ts})")
 
         if args.dry_run:
@@ -204,7 +221,8 @@ def cmd_schedule(args):
         scheduled_count += 1
 
     if not args.dry_run:
-        print(f"\nDone: {scheduled_count} scheduled, {failed_count} failed, {skipped_count} already-scheduled.")
+        print(f"\nDone: {scheduled_count} scheduled, {failed_count} failed, "
+              f"{skipped_count} already-scheduled, {pending_count} not yet in the schedulable window.")
 
 
 def cmd_status(_args):
@@ -228,7 +246,9 @@ def main():
     sub = parser.add_subparsers(dest="command")
 
     plan = sub.add_parser("plan", help="Select archived posts for upcoming dates (see selector.py) and queue them")
-    plan.add_argument("--days", type=int, default=7, help="How many days ahead to plan (default: 7)")
+    plan.add_argument("--days", type=int, default=selector.MAX_SCHEDULE_DAYS,
+                       help=f"How many days ahead to plan (default: {selector.MAX_SCHEDULE_DAYS} — "
+                            "as far out as the Graph API's 75-day scheduling limit allows)")
     plan.add_argument("--queue-out", default=str(QUEUE_FILE),
                        help=f"Queue file to append planned items to (default: {QUEUE_FILE})")
     plan.add_argument("--dry-run", action="store_true",

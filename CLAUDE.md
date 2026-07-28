@@ -99,11 +99,21 @@ There is no test suite or linter configured in this repo.
      twice (enforced by `scheduled/planned_days.json`, below).
   The 3-day cadence is anchored to a fixed epoch (`CADENCE_EPOCH`, not "3
   days since the last run") so the rotation lands on the same calendar dates
-  no matter when `plan` happens to run. `plan_queue()` returns
-  scheduler.py-shaped queue items with the post's original `message` reused
-  verbatim (no Anthropic call — these are literal reposts of already-authored
-  captions, not new content) plus `source_facts` as a fallback in case
-  `content.py`'s drafting is ever needed for an item with no message.
+  no matter when `plan` happens to run. The planning window defaults to
+  `MAX_SCHEDULE_DAYS`, so each `plan` run tops the schedule back up as far
+  out as Meta allows rather than covering only the coming week; it's still
+  overridable via `scheduler.py plan --days N`. **`MAX_SCHEDULE_DAYS` is 24,
+  not the 75 days Meta's docs claim for `scheduled_publish_time`** — real
+  testing against this Page's (Standard Access, not Advanced Access) token
+  showed the Graph API accepting a post 24 days out but rejecting one 30
+  days out with `(#100) The specified scheduled publish time is invalid.`;
+  the 75-day figure likely assumes Advanced Access review. Revisit upward if
+  that review is ever completed for `pages_manage_posts`. `plan_queue()`
+  returns scheduler.py-shaped queue items with the post's original `message`
+  reused verbatim (no Anthropic call — these are literal reposts of
+  already-authored captions, not new content) plus `source_facts` as a
+  fallback in case `content.py`'s drafting is ever needed for an item with
+  no message.
 - `poster_api.py` — thin wrapper around Graph API v21.0, **posting only**,
   kept separate from the read-only `facebook_api.py` (different credential
   scope, different failure modes, no reason for either to depend on the
@@ -149,7 +159,12 @@ There is no test suite or linter configured in this repo.
   immediately after each successful action (not batched at the end) so an
   interrupted run can resume without re-scheduling anything. `--dry-run` on
   either subcommand prints/previews without hitting Facebook or the
-  Anthropic API or writing any state.
+  Anthropic API or writing any state. `schedule` also skips (without calling
+  the Graph API, and without writing `scheduled/state.json`) any item more
+  than `selector.MAX_SCHEDULE_DAYS` out — a photo post's two-step flow
+  uploads the image to the Page *before* the scheduling call that would
+  reject it, so attempting an item known to be too far out would upload an
+  orphaned unpublished photo every run until it finally ages into range.
 
 ## Weekly automation (Windows Task Scheduler)
 
