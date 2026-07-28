@@ -7,7 +7,7 @@ Rules:
   - A post with a specific post_day (always paired with post_months) is
     scheduled on the next upcoming calendar date matching that month/day.
     If more than one active post matches that date, one is chosen at random.
-  - Otherwise, one post is scheduled every CADENCE_DAYS days, chosen at
+  - Otherwise, one post is scheduled every CADENCE_DAYS (2) days, chosen at
     random from posts eligible for that date (post_day unset; post_months
     unset (evergreen) or matching that date's month).
   - Never more than one post per calendar day.
@@ -26,8 +26,8 @@ POSTS_FILE = BASE_DIR / "archive" / "posts.json"
 SCHEDULED_DIR = BASE_DIR / "scheduled"
 PLANNED_DAYS_FILE = SCHEDULED_DIR / "planned_days.json"
 
-CADENCE_DAYS = 3
-# Fixed reference date so the 3-day rotation lands on the same set of
+CADENCE_DAYS = 2
+# Fixed reference date so the rotation lands on the same set of
 # calendar dates regardless of when `plan` happens to run.
 CADENCE_EPOCH = date(2024, 1, 1)
 

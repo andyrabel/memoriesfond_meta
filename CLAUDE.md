@@ -91,13 +91,13 @@ There is no test suite or linter configured in this repo.
   1. A post with `post_day` set (always paired with `post_months`) is
      scheduled on the next upcoming date whose month/day match; if more than
      one active post matches that date, one is chosen at random.
-  2. Otherwise, one post is chosen at random every `CADENCE_DAYS` (3) days,
+  2. Otherwise, one post is chosen at random every `CADENCE_DAYS` (2) days,
      from posts eligible for that date — `post_day` unset, and `post_months`
      either unset (evergreen) or containing that date's month.
   3. Never more than one post per calendar day (enforced by rule 2 only
      applying when rule 1 found nothing that day) and never the same post
      twice (enforced by `scheduled/planned_days.json`, below).
-  The 3-day cadence is anchored to a fixed epoch (`CADENCE_EPOCH`, not "3
+  The cadence is anchored to a fixed epoch (`CADENCE_EPOCH`, not "N
   days since the last run") so the rotation lands on the same calendar dates
   no matter when `plan` happens to run. The planning window defaults to
   `MAX_SCHEDULE_DAYS`, so each `plan` run tops the schedule back up as far
