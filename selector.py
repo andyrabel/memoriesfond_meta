@@ -4,9 +4,12 @@ archive/posts.json) gets scheduled for which upcoming date, and feeds the
 result into scheduler.py's `schedule` command via a queue file.
 
 Rules:
-  - A post with a specific post_day (always paired with post_months) is
-    scheduled on the next upcoming calendar date matching that month/day.
-    If more than one active post matches that date, one is chosen at random.
+  - A post with a post_day (always paired with post_months) is scheduled on
+    the next upcoming calendar date matching that month and day. post_day is
+    a day-of-month, a dash range ("1-25"), or a comma list/mix of either
+    ("1-5,25") — the post becomes eligible on any day in that window and is
+    scheduled (once) on the first such date the planning window reaches. If
+    more than one active post matches that date, one is chosen at random.
   - Otherwise, one post is scheduled every CADENCE_DAYS (2) days, chosen at
     random from posts eligible for that date (post_day unset; post_months
     unset (evergreen) or matching that date's month).
@@ -70,10 +73,28 @@ def _months_csv_to_set(csv: str | None) -> set[int]:
     return {int(m) for m in csv.split(",") if m.strip()}
 
 
+def _days_csv_to_set(csv: str | None) -> set[int]:
+    """Parses post_day: comma-separated days and/or dash ranges, e.g.
+    "25" (single day), "1-25" (range), or "1-5,25" (mixed)."""
+    if not csv:
+        return set()
+    days = set()
+    for part in csv.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            start, end = part.split("-", 1)
+            days.update(range(int(start), int(end) + 1))
+        else:
+            days.add(int(part))
+    return days
+
+
 def _is_day_specific_match(post: dict, d: date) -> bool:
     if not post.get("post_day"):
         return False
-    return d.month in _months_csv_to_set(post.get("post_months")) and int(post["post_day"]) == d.day
+    return d.month in _months_csv_to_set(post.get("post_months")) and d.day in _days_csv_to_set(post.get("post_day"))
 
 
 def _is_general_eligible(post: dict, d: date) -> bool:

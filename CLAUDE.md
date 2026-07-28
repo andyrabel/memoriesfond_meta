@@ -90,7 +90,11 @@ There is no test suite or linter configured in this repo.
   Rules, in priority order:
   1. A post with `post_day` set (always paired with `post_months`) is
      scheduled on the next upcoming date whose month/day match; if more than
-     one active post matches that date, one is chosen at random.
+     one active post matches that date, one is chosen at random. `post_day`
+     can be a single day (`"25"`), a dash range (`"1-25"`), or a comma
+     list/mix of either (`"1-5,25"`) — the post becomes eligible on any day
+     in that window and is scheduled (once) on the first such date the
+     planning window reaches.
   2. Otherwise, one post is chosen at random every `CADENCE_DAYS` (2) days,
      from posts eligible for that date — `post_day` unset, and `post_months`
      either unset (evergreen) or containing that date's month.
@@ -199,20 +203,23 @@ content and downloaded images, never commit it):
   - `post_months` / `post_day` — optional CSV strings (`null` when absent)
     restricting which calendar months/days a post is allowed to be
     reposted on, for content tied to a season or holiday rather than
-    evergreen (e.g. a Christmas-themed post might have
-    `post_months: "11,12"`; a Valentine's/Feb-14-specific post might have
-    `post_months: "2"`, `post_day: "14"`). Both were back-filled by guessing
-    from each post's text/hashtags when the field was introduced — treat
-    existing values as a reasonable first pass, not ground truth, and
-    correct them as mis-tags are noticed. Most posts have no seasonal tie
-    and carry `null`/`null` (evergreen, postable any time of year).
-    **Whatever process builds Phase 2's queue file must honor these
-    fields**: a post whose `post_months` is set should only be eligible on
-    a calendar date whose month is in that CSV list, and if `post_day` is
-    also set, the day-of-month must match too (day is meaningless without
-    a corresponding month already narrowing things down, so it's only ever
-    set alongside `post_months`). A post with both fields `null` has no
-    seasonal restriction and can be scheduled for any anniversary date the
+    evergreen. `post_day` also accepts a dash range or a comma list/mix of
+    either (`"1-25"`, `"1-5,25"`), for holidays spanning more than a single
+    date (e.g. Christmas/Santa-themed posts are restricted to Dec 1–25 only:
+    `post_months: "12"`, `post_day: "1-25"`); a single-date holiday like
+    Valentine's Day gets `post_months: "2"`, `post_day: "14"`. Both fields
+    were back-filled by guessing from each post's text/hashtags when the
+    field was introduced — treat existing values as a reasonable first pass,
+    not ground truth, and correct them as mis-tags are noticed. Most posts
+    have no seasonal tie and carry `null`/`null` (evergreen, postable any
+    time of year). **Whatever process builds Phase 2's queue file must honor
+    these fields**: a post whose `post_months` is set should only be
+    eligible on a calendar date whose month is in that CSV list, and if
+    `post_day` is also set, the day-of-month must fall in that set/range too
+    (day is meaningless without a corresponding month already narrowing
+    things down, so it's only ever set alongside `post_months`). A post with
+    both fields `null` has no seasonal restriction and can be scheduled for
+    any anniversary date the
     normal logic picks.
 - `archive/skipped_posts.json` — list of `{post_id, reason, created_time}`.
   Reasons: `multi_photo_album`, `video`, `shared_link`,
