@@ -59,7 +59,7 @@ Everything lives under `archive/` (gitignored — this holds the Page's real
 content and downloaded images, never commit it):
 
 - `archive/posts.json` — list of kept posts:
-  `{post_id, message, created_time (ISO date), image_path, permalink_url, status}`.
+  `{post_id, message, created_time (ISO date), post_months, post_day, image_path, permalink_url, status}`.
   `created_time` is date-only because a later phase will match posts to
   their calendar anniversary by day-of-year. `status` defaults to `active`;
   editorial curation (content that's stale or needs a rewrite before it's
@@ -67,6 +67,24 @@ content and downloaded images, never commit it):
   `backfill.py flag --contains ... --status ...` rather than moving the
   entry to `skipped_posts.json`, whose reasons are reserved for automatic,
   structural exclusions decided by `classify_post()`.
+  - `post_months` / `post_day` — optional CSV strings (`null` when absent)
+    restricting which calendar months/days a post is allowed to be
+    reposted on, for content tied to a season or holiday rather than
+    evergreen (e.g. a Christmas-themed post might have
+    `post_months: "11,12"`; a Valentine's/Feb-14-specific post might have
+    `post_months: "2"`, `post_day: "14"`). Both were back-filled by guessing
+    from each post's text/hashtags when the field was introduced — treat
+    existing values as a reasonable first pass, not ground truth, and
+    correct them as mis-tags are noticed. Most posts have no seasonal tie
+    and carry `null`/`null` (evergreen, postable any time of year).
+    **When the scheduler (a later phase) is built, it must honor these
+    fields**: a post whose `post_months` is set should only be eligible on
+    a calendar date whose month is in that CSV list, and if `post_day` is
+    also set, the day-of-month must match too (day is meaningless without
+    a corresponding month already narrowing things down, so it's only ever
+    set alongside `post_months`). A post with both fields `null` has no
+    seasonal restriction and can be scheduled for any anniversary date the
+    normal logic picks.
 - `archive/skipped_posts.json` — list of `{post_id, reason, created_time}`.
   Reasons: `multi_photo_album`, `video`, `shared_link`,
   `text_only_no_image`, `photo_missing_src`, `image_download_failed:...`,
