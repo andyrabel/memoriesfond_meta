@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Phase 1 of a Facebook Page automation project, **read-and-archive only**. It
+This is the **Memories Fond Publisher** app. Phase 1 of a Facebook Page automation project, **read-and-archive only**. It
 fetches posts from an existing Facebook Page's last 3 years via the Graph
 API, classifies them by attachment type, downloads images for the
 text+single-image posts it can act on later, and stores everything locally
@@ -59,9 +59,14 @@ Everything lives under `archive/` (gitignored — this holds the Page's real
 content and downloaded images, never commit it):
 
 - `archive/posts.json` — list of kept posts:
-  `{post_id, message, created_time (ISO date), image_path, permalink_url}`.
+  `{post_id, message, created_time (ISO date), image_path, permalink_url, status}`.
   `created_time` is date-only because a later phase will match posts to
-  their calendar anniversary by day-of-year.
+  their calendar anniversary by day-of-year. `status` defaults to `active`;
+  editorial curation (content that's stale or needs a rewrite before it's
+  ever reposted) sets it to values like `needs_update` or `excluded` via
+  `backfill.py flag --contains ... --status ...` rather than moving the
+  entry to `skipped_posts.json`, whose reasons are reserved for automatic,
+  structural exclusions decided by `classify_post()`.
 - `archive/skipped_posts.json` — list of `{post_id, reason, created_time}`.
   Reasons: `multi_photo_album`, `video`, `shared_link`,
   `text_only_no_image`, `photo_missing_src`, `image_download_failed:...`,

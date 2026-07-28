@@ -218,6 +218,33 @@ def cmd_run(args):
     print(f"Archive totals: {len(posts)} kept, {len(skipped)} skipped.")
 
 
+def cmd_flag(args):
+    posts = load_json_list(POSTS_FILE)
+    if not posts:
+        print("No posts found — run `backfill.py run` first.")
+        return
+
+    needles = [c.lower() for c in (args.contains or [])]
+    post_ids = set(args.post_id or [])
+    matched = 0
+    for p in posts:
+        p.setdefault("status", "active")
+        message = (p.get("message") or "").lower()
+        if p["post_id"] in post_ids or any(n in message for n in needles):
+            matched += 1
+            if args.dry_run:
+                print(f"  {p['post_id']}  would set status={args.status!r}  {p['message'][:60]!r}")
+            else:
+                p["status"] = args.status
+
+    if args.dry_run:
+        print(f"\n{matched} post(s) matched (dry run — no changes written).")
+        return
+
+    save_json_list(POSTS_FILE, posts)
+    print(f"{matched} post(s) updated to status={args.status!r}.")
+
+
 def cmd_status(_args):
     posts = load_json_list(POSTS_FILE)
     skipped = load_json_list(SKIPPED_FILE)
@@ -226,6 +253,12 @@ def cmd_status(_args):
     total_found = len(posts) + len(skipped)
     print(f"Posts found:   {total_found}")
     print(f"  kept:        {len(posts)}  (text + single image)")
+    if posts:
+        statuses: dict[str, int] = {}
+        for p in posts:
+            statuses[p.get("status", "active")] = statuses.get(p.get("status", "active"), 0) + 1
+        for status, count in sorted(statuses.items(), key=lambda kv: -kv[1]):
+            print(f"    - {status}: {count}")
     print(f"  skipped:     {len(skipped)}")
 
     if skipped:
@@ -259,12 +292,24 @@ def main():
 
     sub.add_parser("status", help="Report on what's been archived so far")
 
+    flag = sub.add_parser("flag", help="Mark kept posts matching text patterns or IDs with a status")
+    flag.add_argument("--contains", action="append",
+                       help="Case-insensitive substring to match in the post message (repeatable)")
+    flag.add_argument("--post-id", action="append",
+                       help="Exact post_id to match, for image-only posts with no text (repeatable)")
+    flag.add_argument("--status", required=True,
+                       help="Status to set on matching posts, e.g. needs_update, excluded")
+    flag.add_argument("--dry-run", action="store_true",
+                       help="Preview matches without writing changes")
+
     args = parser.parse_args()
 
     if args.command == "run":
         cmd_run(args)
     elif args.command == "status":
         cmd_status(args)
+    elif args.command == "flag":
+        cmd_flag(args)
     else:
         parser.print_help()
 
