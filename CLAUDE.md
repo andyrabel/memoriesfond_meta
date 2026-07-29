@@ -169,6 +169,18 @@ There is no test suite or linter configured in this repo.
   uploads the image to the Page *before* the scheduling call that would
   reject it, so attempting an item known to be too far out would upload an
   orphaned unpublished photo every run until it finally ages into range.
+  After a (non-dry-run) `schedule` run, it calls `notify.send_schedule_summary()`
+  with whatever was newly scheduled that run (skipped entirely if nothing
+  new was scheduled).
+- `notify.py` — emails `MY_EMAIL_ADDRESS` a summary of posts newly scheduled
+  by a `schedule` run, each with a best-effort preview link
+  (`https://www.facebook.com/{page-id}/posts/{post-id}` — the standard Page
+  post permalink shape, which admins can open to see a scheduled/unpublished
+  post with a "Scheduled" preview banner; not a formally documented Graph API
+  feature, just the standard permalink format). Sent via `smtplib` (stdlib)
+  through the mail provider configured by the `SMTP_*` env vars — no new
+  dependency. If `MY_EMAIL_ADDRESS` or any `SMTP_*` var is unset, the email
+  is skipped with a printed warning rather than failing the `schedule` run.
 
 ## Weekly automation (Windows Task Scheduler)
 
@@ -268,6 +280,12 @@ content and downloaded images, never commit it):
   this machine — never reuse another project's token or Page ID here.
 - `ANTHROPIC_API_KEY` — used by `content.py` to draft captions. Optional
   `ANTHROPIC_MODEL` override (defaults to `claude-opus-5`).
+- `MY_EMAIL_ADDRESS` / `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` /
+  `SMTP_PASSWORD` (optional `SMTP_FROM`, defaults to `SMTP_USERNAME`) — used
+  by `notify.py` to email a summary of newly scheduled posts after each
+  `scheduler.py schedule` run. For Gmail, `SMTP_PASSWORD` must be an App
+  Password, not the account password. All optional as a set — if any is
+  missing the email is skipped with a warning, not a hard failure.
 - `FB_APP_ID` / `FB_APP_SECRET` — only read by `get_long_lived_token.py`, an
   occasional manual utility (not called by `backfill.py` or `scheduler.py`)
   that exchanges a short-lived User Access Token (from the Graph API

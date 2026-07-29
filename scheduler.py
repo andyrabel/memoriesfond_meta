@@ -45,6 +45,7 @@ from dotenv import load_dotenv
 
 import content
 import media
+import notify
 import selector
 from poster_api import FacebookPoster
 
@@ -165,6 +166,7 @@ def cmd_schedule(args):
 
     scheduled_count = failed_count = skipped_count = pending_count = 0
     max_horizon_seconds = selector.MAX_SCHEDULE_DAYS * 86400
+    newly_scheduled = []
 
     for item in queue:
         item_id = item["id"]
@@ -219,10 +221,18 @@ def cmd_schedule(args):
         save_state(state)
         print(f"    ok: {result}")
         scheduled_count += 1
+        newly_scheduled.append({
+            "id": item_id,
+            "type": item["type"],
+            "scheduled_ts": scheduled_ts,
+            "message": message,
+            "result": result,
+        })
 
     if not args.dry_run:
         print(f"\nDone: {scheduled_count} scheduled, {failed_count} failed, "
               f"{skipped_count} already-scheduled, {pending_count} not yet in the schedulable window.")
+        notify.send_schedule_summary(os.environ["FB_PAGE_ID"], newly_scheduled)
 
 
 def cmd_status(_args):
