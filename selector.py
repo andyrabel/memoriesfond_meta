@@ -24,6 +24,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 import os
 
+import instagram_poster_api
+
 BASE_DIR = Path(__file__).parent
 POSTS_FILE = BASE_DIR / "archive" / "posts.json"
 SCHEDULED_DIR = BASE_DIR / "scheduled"
@@ -124,6 +126,11 @@ def _queue_item(post: dict, d: date) -> dict:
             "permalink_url": post.get("permalink_url", ""),
         },
         "image_path": post["image_path"],
+        # Instagram feed images must fall within a 4:5-1.91:1 aspect ratio —
+        # computed once here at plan time so scheduler.py's publish-instagram
+        # command doesn't need to re-derive it. A post failing this still
+        # posts to Facebook as normal; it's just skipped for Instagram.
+        "ig_eligible": instagram_poster_api.is_aspect_ratio_ok(post["image_path"]),
     }
 
 

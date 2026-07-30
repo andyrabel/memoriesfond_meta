@@ -219,29 +219,57 @@ def cmd_run(args):
 
 
 def cmd_flag(args):
+    """Sets a post's editorial status. posts.json only ever holds currently-
+    eligible (status: "active") posts — it's checked into the repo for
+    Instagram's image-hosting needs (see CLAUDE.md), so anything not actually
+    postable shouldn't be sitting in it. Setting a non-"active" status moves
+    the entry out to skipped_posts.json (reason: "editorial_status:<status>");
+    setting "active" moves a previously-flagged entry back in."""
     posts = load_json_list(POSTS_FILE)
-    if not posts:
+    skipped = load_json_list(SKIPPED_FILE)
+    if not posts and not skipped:
         print("No posts found — run `backfill.py run` first.")
         return
 
     needles = [c.lower() for c in (args.contains or [])]
     post_ids = set(args.post_id or [])
-    matched = 0
-    for p in posts:
-        p.setdefault("status", "active")
-        message = (p.get("message") or "").lower()
-        if p["post_id"] in post_ids or any(n in message for n in needles):
-            matched += 1
-            if args.dry_run:
-                print(f"  {p['post_id']}  would set status={args.status!r}  {p['message'][:60]!r}")
-            else:
-                p["status"] = args.status
+
+    def matches(post_id: str, message: str) -> bool:
+        message = (message or "").lower()
+        return post_id in post_ids or any(n in message for n in needles)
+
+    matched_posts = [p for p in posts if matches(p["post_id"], p.get("message"))]
+    matched_skipped = [s for s in skipped if s.get("reason", "").startswith("editorial_status:")
+                        and matches(s["post_id"], s.get("message"))]
+    matched = len(matched_posts) + len(matched_skipped)
 
     if args.dry_run:
+        for p in matched_posts + matched_skipped:
+            action = "stay in posts.json" if args.status == "active" else "move to skipped_posts.json"
+            print(f"  {p['post_id']}  would set status={args.status!r} ({action})  {p.get('message', '')[:60]!r}")
         print(f"\n{matched} post(s) matched (dry run — no changes written).")
         return
 
+    if args.status == "active":
+        for p in matched_posts:
+            p["status"] = "active"
+        for entry in matched_skipped:
+            entry["status"] = "active"
+            entry.pop("reason", None)
+            posts.append(entry)
+        skipped = [s for s in skipped if s not in matched_skipped]
+    else:
+        for p in matched_posts:
+            p["status"] = args.status
+            p["reason"] = f"editorial_status:{args.status}"
+            skipped.append(p)
+        posts = [p for p in posts if p not in matched_posts]
+        for entry in matched_skipped:
+            entry["status"] = args.status
+            entry["reason"] = f"editorial_status:{args.status}"
+
     save_json_list(POSTS_FILE, posts)
+    save_json_list(SKIPPED_FILE, skipped)
     print(f"{matched} post(s) updated to status={args.status!r}.")
 
 

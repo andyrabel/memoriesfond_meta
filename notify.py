@@ -74,3 +74,43 @@ def send_schedule_summary(page_id: str, scheduled_items: list[dict]) -> None:
         print(f"  Email summary sent to {env['MY_EMAIL_ADDRESS']}.")
     except Exception as e:
         print(f"  Warning: failed to send email summary: {e}")
+
+
+def build_instagram_summary(published_items: list[dict]) -> str:
+    lines = [f"{len(published_items)} post(s) newly published to Instagram:", ""]
+    for entry in published_items:
+        lines.append(f"- {entry['id']}")
+        lines.append(f"  {entry['message'][:200]!r}")
+        lines.append(f"  preview: {entry['result'].get('permalink') or '(not available)'}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def send_instagram_summary(published_items: list[dict]) -> None:
+    """Best-effort: never raises. Mirrors send_schedule_summary but for
+    Instagram, which publishes immediately rather than on a future
+    scheduled_publish_time (see scheduler.py's `publish-instagram` command)."""
+    if not published_items:
+        return
+
+    env = {name: os.getenv(name) for name in REQUIRED_ENV_VARS}
+    missing = [name for name, value in env.items() if not value]
+    if missing:
+        print(f"  (skipping email summary — missing env vars: {', '.join(missing)})")
+        return
+
+    sender = os.getenv("SMTP_FROM", env["SMTP_USERNAME"])
+    msg = EmailMessage()
+    msg["Subject"] = f"Memories Fond: {len(published_items)} post(s) newly published to Instagram"
+    msg["From"] = sender
+    msg["To"] = env["MY_EMAIL_ADDRESS"]
+    msg.set_content(build_instagram_summary(published_items))
+
+    try:
+        with smtplib.SMTP(env["SMTP_HOST"], int(env["SMTP_PORT"])) as smtp:
+            smtp.starttls()
+            smtp.login(env["SMTP_USERNAME"], env["SMTP_PASSWORD"])
+            smtp.send_message(msg)
+        print(f"  Email summary sent to {env['MY_EMAIL_ADDRESS']}.")
+    except Exception as e:
+        print(f"  Warning: failed to send email summary: {e}")

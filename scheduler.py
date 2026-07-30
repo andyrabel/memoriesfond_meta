@@ -1,15 +1,23 @@
 """
-Phase 2 — schedule unpublished Facebook Page posts ahead of time.
+Phase 2 — schedule unpublished Facebook Page posts ahead of time, and publish
+their Instagram cross-post once the date actually arrives.
 
 Usage:
   python3 scheduler.py plan                                    # select upcoming posts from the archive (see selector.py)
   python3 scheduler.py plan --dry-run                          # preview the plan, write nothing
   python3 scheduler.py schedule                                # schedule every pending item in scheduled/queue.json
   python3 scheduler.py schedule --queue queue.json --dry-run   # print Graph API calls only
+  python3 scheduler.py publish-instagram                       # publish any due item to Instagram (run daily)
+  python3 scheduler.py publish-instagram --dry-run             # preview without hitting Instagram
   python3 scheduler.py status                                  # report on what's been scheduled
 
   # weekly run (see run_weekly.bat for a Windows Task Scheduler wrapper):
   python3 scheduler.py plan && python3 scheduler.py schedule
+
+  # daily run (see run_daily_instagram.bat) — Instagram has no
+  # scheduled_publish_time equivalent, so publishing has to happen on the
+  # actual day rather than up-front alongside Facebook's scheduling:
+  python3 scheduler.py publish-instagram
 
 `plan` is selector.py's rotation logic (day-specific posts on their calendar
 date, otherwise one random eligible post every 3 days, never more than one
@@ -47,6 +55,7 @@ import content
 import media
 import notify
 import selector
+from instagram_poster_api import InstagramPoster
 from poster_api import FacebookPoster
 
 load_dotenv()
@@ -54,6 +63,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).parent
 STATE_DIR = BASE_DIR / "scheduled"
 STATE_FILE = STATE_DIR / "state.json"
+INSTAGRAM_STATE_FILE = STATE_DIR / "instagram_state.json"
 QUEUE_FILE = STATE_DIR / "queue.json"
 
 
@@ -74,6 +84,17 @@ def load_state() -> dict:
 def save_state(state: dict):
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def load_instagram_state() -> dict:
+    if INSTAGRAM_STATE_FILE.exists():
+        return json.loads(INSTAGRAM_STATE_FILE.read_text(encoding="utf-8"))
+    return {}
+
+
+def save_instagram_state(state: dict):
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    INSTAGRAM_STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def parse_scheduled_time(value) -> int:
@@ -235,6 +256,87 @@ def cmd_schedule(args):
         notify.send_schedule_summary(os.environ["FB_PAGE_ID"], newly_scheduled)
 
 
+def cmd_publish_instagram(args):
+    """Publishes queue items to Instagram once their scheduled_publish_time has
+    actually arrived. Unlike Facebook, Instagram content publishing has no
+    scheduled_publish_time equivalent — a container can be created ahead of
+    time, but media_publish makes it live immediately — so this is meant to
+    run daily (see run_daily_instagram.bat), separately from the weekly
+    plan+schedule cadence that fronts Facebook's scheduling up to 24 days out."""
+    queue = json.loads(Path(args.queue).read_text(encoding="utf-8"))
+    fb_state = load_state()
+    ig_state = load_instagram_state()
+    poster = None
+    if not args.dry_run:
+        require_env("IG_BUSINESS_ACCOUNT_ID", "FB_PAGE_TOKEN", "GITHUB_RAW_BASE_URL")
+        poster = InstagramPoster(ig_user_id=os.environ["IG_BUSINESS_ACCOUNT_ID"], page_token=os.environ["FB_PAGE_TOKEN"])
+    base_url = os.getenv("GITHUB_RAW_BASE_URL", "")
+
+    now_ts = datetime.now(timezone.utc).timestamp()
+    published_count = failed_count = skipped_count = not_due_count = 0
+    newly_published = []
+
+    for item in queue:
+        item_id = item["id"]
+
+        if item["type"] != "photo":
+            continue  # Instagram posting only supports photo items for now
+        if not item.get("ig_eligible", False):
+            print(f"  {item_id}  aspect ratio out of Instagram's allowed range — Facebook-only, skipping")
+            continue
+        if ig_state.get(item_id, {}).get("status") == "published":
+            print(f"  {item_id}  already published to Instagram — skipping")
+            skipped_count += 1
+            continue
+        if fb_state.get(item_id, {}).get("status") != "scheduled":
+            print(f"  {item_id}  not yet scheduled on Facebook — skipping")
+            continue
+
+        scheduled_ts = parse_scheduled_time(item["scheduled_publish_time"])
+        if scheduled_ts > now_ts:
+            print(f"  {item_id}  scheduled for {item['scheduled_publish_time']} — not due yet, skipping")
+            not_due_count += 1
+            continue
+
+        message = item.get("message") or content.draft_caption(item.get("source_facts", {}), item["type"])
+        image_url = f"{base_url.rstrip('/')}/{item['image_path']}"
+        print(f"  {item_id}  scheduled for {item['scheduled_publish_time']} — due now")
+        print(f"    message: {message!r}")
+        print(f"    image_url: {image_url}")
+
+        if args.dry_run:
+            print("    [dry-run] would call: POST /{ig-user-id}/media, poll status, POST /{ig-user-id}/media_publish")
+            continue
+
+        try:
+            result = poster.create_photo_post(image_url, message)
+        except Exception as e:
+            print(f"    failed: {e}")
+            ig_state[item_id] = {
+                "status": "failed",
+                "error": str(e),
+                "attempted_at": datetime.now(timezone.utc).isoformat(),
+            }
+            save_instagram_state(ig_state)
+            failed_count += 1
+            continue
+
+        ig_state[item_id] = {
+            "status": "published",
+            "result": result,
+            "published_at": datetime.now(timezone.utc).isoformat(),
+        }
+        save_instagram_state(ig_state)
+        print(f"    ok: {result}")
+        published_count += 1
+        newly_published.append({"id": item_id, "message": message, "result": result})
+
+    if not args.dry_run:
+        print(f"\nDone: {published_count} published, {failed_count} failed, "
+              f"{skipped_count} already-published, {not_due_count} not yet due.")
+        notify.send_instagram_summary(newly_published)
+
+
 def cmd_status(_args):
     state = load_state()
     if not state:
@@ -270,6 +372,13 @@ def main():
     schedule.add_argument("--dry-run", action="store_true",
                            help="Print the exact Graph API calls/payloads without hitting Facebook or the Anthropic API")
 
+    publish_ig = sub.add_parser("publish-instagram",
+                                 help="Publish any due queue item to Instagram (run daily — see run_daily_instagram.bat)")
+    publish_ig.add_argument("--queue", default=str(QUEUE_FILE),
+                             help=f"Path to a JSON queue file (default: {QUEUE_FILE})")
+    publish_ig.add_argument("--dry-run", action="store_true",
+                             help="Print what would be published without hitting Instagram or the Anthropic API")
+
     sub.add_parser("status", help="Report on what's been scheduled so far")
 
     args = parser.parse_args()
@@ -277,6 +386,8 @@ def main():
         cmd_plan(args)
     elif args.command == "schedule":
         cmd_schedule(args)
+    elif args.command == "publish-instagram":
+        cmd_publish_instagram(args)
     elif args.command == "status":
         cmd_status(args)
     else:
