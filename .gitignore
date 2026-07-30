@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 .env
-archive/
+archive/*
+!archive/images/
+!archive/posts.json
 media_cache/
 scheduled/
