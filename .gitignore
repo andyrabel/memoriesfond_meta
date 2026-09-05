@@ -7,3 +7,4 @@ archive/*
 !archive/posts.json
 media_cache/
 scheduled/
+logs/
