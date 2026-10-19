@@ -69,8 +69,8 @@ python scheduler.py plan && python scheduler.py schedule
 # daily run (Instagram publishing) — see "Daily automation" below
 python scheduler.py publish-instagram
 
-# "Seasons with Dad" promo reels (one-off, not part of the weekly/daily runs)
-python reels.py preview           # crop-window contact sheets -> media_cache/reel_preview/
+# picture-book read-aloud promo reels (one-off, not part of the weekly/daily runs)
+python reels.py preview           # crop-window contact sheets -> media_cache/reel_preview/ (--book finding-granny to narrow)
 python reels.py build             # render archive/reels/*.mp4 (needs the gitignored source video)
 python reels.py queue --dry-run   # append reels to scheduled/queue.json on their fixed dates
 ```
@@ -194,13 +194,19 @@ There is no test suite or linter configured in this repo.
   - `InstagramPosterError` mirrors `FacebookPosterError`'s shape
     (`code`/`error_subcode`/`fbtrace_id`); `ContainerProcessingError` covers
     a container that errors or never finishes processing.
-- `reels.py` — cuts 9:16 promo reels out of the animated "Seasons with Dad"
-  read-aloud (`archive/video/`, gitignored — over GitHub's 100MB limit) into
-  `archive/reels/{id}.mp4`. The source is ~2.04:1, so each scene has its own
+- `reels.py` — cuts 9:16 promo reels out of the animated read-alouds
+  ("Seasons with Dad", "Finding Granny", "Adopt a Dinosaur" — one `BOOKS`
+  entry each, with its own source, size, end card and reels; `archive/video/`,
+  gitignored — over GitHub's 100MB limit) into `archive/reels/{id}.mp4`.
+  "Adopt a Dinosaur"'s source has karaoke subtitles burned in, so its entry
+  sets `pic_h` (crop to the picture above them) and `captions` (the verse
+  transcribed with per-line timings, re-rendered as PIL PNG overlays — no
+  `drawtext` in the bundled ffmpeg). The sources are
+  ~2.04:1 and 16:9, so each scene has its own
   crop keyframes (window centre as a fraction of source width, smoothstep-
   eased) that pan between characters rather than one fixed centre crop; cuts
   land on narration pauses, not scene cuts, and every reel closes on the
-  cover/title card letterboxed over a blurred fill. Each reel has a fixed
+  book's title card letterboxed over a blurred fill. Each reel has a fixed
   hand-picked `date` (seasonal, on non-cadence days) and caption; `queue`
   appends them as `type: "video"` items with `video_path` and claims their
   days in `planned_days.json` so the photo rotation stays off them.
