@@ -270,46 +270,6 @@
     "status": "active"
   },
   {
-    "post_id": "101433049537943_615236348158155",
-    "message": "Happy Pie Day (3/14) from Zac!\n#zacisback #pieday #pieday2025",
-    "created_time": "2025-03-15",
-    "post_months": "3",
-    "post_day": "14",
-    "image_path": "archive/images/101433049537943_615236348158155.jpg",
-    "permalink_url": "https://www.facebook.com/1017948161220303/posts/615236348158155",
-    "status": "active"
-  },
-  {
-    "post_id": "101433049537943_615220274826429",
-    "message": "Happy Pie Day (3/14) from Zac!\n#zacisback #pieday #pieday2025",
-    "created_time": "2025-03-15",
-    "post_months": "3",
-    "post_day": "14",
-    "image_path": "archive/images/101433049537943_615220274826429.jpg",
-    "permalink_url": "https://www.facebook.com/1017948161220303/posts/615220274826429",
-    "status": "active"
-  },
-  {
-    "post_id": "101433049537943_614524481562675",
-    "message": "Zac is building a chicken coop today! 🐓🏠 After all those times borrowing eggs, he's decided to raise his own chickens. 🥚 Looking forward to seeing the finished coop. \n\n#ZacIsBack #GodIsLoveStory #ChristianChildrensPictureBooks #ChristianChildrensBooks #memoriesfond",
-    "created_time": "2025-03-14",
-    "post_months": null,
-    "post_day": null,
-    "image_path": "archive/images/101433049537943_614524481562675.jpg",
-    "permalink_url": "https://www.facebook.com/1017948161220303/posts/614524481562675",
-    "status": "active"
-  },
-  {
-    "post_id": "101433049537943_611488988532891",
-    "message": "Great news! Zac has been accepted as a contestant for the \"The Great British Bake Off\"! 🍰🥧📖🎂✨“\n\n“If you love fun rhyming stories with a sprinkle of faith, check out ‘Zac is Back’!”. Link to my books in bio.\n\n#BakingWithLove #LemonMeringuePie #ShareTheLove #BookLovers #RhymingStories #KidsStorytime #Bookstagram #ZacIsBack #ChristianKidsBooks #FaithAndFun #GodIsLove #ChildrensBooks",
-    "created_time": "2025-03-10",
-    "post_months": null,
-    "post_day": null,
-    "image_path": "archive/images/101433049537943_611488988532891.jpg",
-    "permalink_url": "https://www.facebook.com/1017948161220303/posts/611488988532891",
-    "status": "active"
-  },
-  {
     "post_id": "101433049537943_611398568541933",
     "message": "A bookshelf of my books!\n\n#Bookstagram #AuthorLife #ChildrensBooks #MemoriesFond",
     "created_time": "2025-03-10",
@@ -317,16 +277,6 @@
     "post_day": null,
     "image_path": "archive/images/101433049537943_611398568541933.jpg",
     "permalink_url": "https://www.facebook.com/1017948161220303/posts/611398568541933",
-    "status": "active"
-  },
-  {
-    "post_id": "101433049537943_609761255372331",
-    "message": "Zac’s at the ophthalmologist for an eye test, but no updates needed—his glasses are still a perfect fit! 👓😎\n\n#ZacIsBack #ChildrensBooks #MemoriesFond",
-    "created_time": "2025-03-07",
-    "post_months": null,
-    "post_day": null,
-    "image_path": "archive/images/101433049537943_609761255372331.jpg",
-    "permalink_url": "https://www.facebook.com/1017948161220303/posts/609761255372331",
     "status": "active"
   },
   {
@@ -3599,6 +3549,46 @@
     "post_months": null,
     "post_day": null,
     "image_path": "archive/images/book-sq-si-08-menu.jpg",
+    "permalink_url": "",
+    "status": "active"
+  },
+  {
+    "post_id": "zac-pie-day",
+    "message": "Happy Pie Day (3/14) from Zac! 🥧 Lemon meringue, of course.\n\nhttps://memoriesfond.com/\n\n#ZacIsBack #PieDay #LemonMeringuePie #ChildrensBooks #MemoriesFond",
+    "created_time": "2026-10-17",
+    "post_months": "3",
+    "post_day": "14",
+    "image_path": "archive/images/zac-pie-day.jpg",
+    "permalink_url": "",
+    "status": "active"
+  },
+  {
+    "post_id": "zac-chicken-coop",
+    "message": "Zac is building a chicken coop today! 🐓🏠 After all those times borrowing eggs, he's decided to raise his own chickens. 🥚 Looking forward to seeing the finished coop.\n\nhttps://memoriesfond.com/\n\n#ZacIsBack #GodIsLoveStory #ChristianChildrensPictureBooks #ChristianChildrensBooks #MemoriesFond",
+    "created_time": "2026-10-17",
+    "post_months": null,
+    "post_day": null,
+    "image_path": "archive/images/zac-chicken-coop.jpg",
+    "permalink_url": "",
+    "status": "active"
+  },
+  {
+    "post_id": "zac-bake-off",
+    "message": "Great news! Zac has been accepted as a contestant for \"The Great British Bake Off\"! 🍰🥧📖🎂✨\n\nIf you love fun rhyming stories with a sprinkle of faith, check out \"Zac is Back!\"\n\nhttps://memoriesfond.com/\n\n#BakingWithLove #LemonMeringuePie #ShareTheLove #BookLovers #RhymingStories #KidsStorytime #Bookstagram #ZacIsBack #ChristianKidsBooks #FaithAndFun #GodIsLove #ChildrensBooks",
+    "created_time": "2026-10-17",
+    "post_months": null,
+    "post_day": null,
+    "image_path": "archive/images/zac-bake-off.jpg",
+    "permalink_url": "",
+    "status": "active"
+  },
+  {
+    "post_id": "zac-eye-test",
+    "message": "Zac's at the ophthalmologist for an eye test, but no updates needed—his glasses are still a perfect fit! 👓😎\n\nhttps://memoriesfond.com/\n\n#ZacIsBack #ChildrensBooks #MemoriesFond",
+    "created_time": "2026-10-17",
+    "post_months": null,
+    "post_day": null,
+    "image_path": "archive/images/zac-eye-test.jpg",
     "permalink_url": "",
     "status": "active"
   }

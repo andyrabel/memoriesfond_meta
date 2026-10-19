@@ -5,6 +5,7 @@ __pycache__/
 archive/*
 !archive/images/
 !archive/posts.json
+!archive/reels/
 media_cache/
 scheduled/
 logs/

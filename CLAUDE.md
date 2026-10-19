@@ -19,7 +19,7 @@ This is the **Memories Fond Publisher** app, a Facebook Page automation project 
   from structured facts via the Anthropic API when a post doesn't already
   have one.
 - **Instagram cross-posting** (`instagram_poster_api.py`), posting only,
-  photo posts only. The same photo posts scheduled on Facebook also get
+  photo posts plus the `reels.py` promo Reels. The same photo posts scheduled on Facebook also get
   published to the Page's linked Instagram Business account, reusing the
   same caption. This is a genuinely different API shape from Facebook's,
   not just another `poster_api.py` method — see its own bullet under
@@ -68,6 +68,11 @@ python scheduler.py plan && python scheduler.py schedule
 
 # daily run (Instagram publishing) — see "Daily automation" below
 python scheduler.py publish-instagram
+
+# "Seasons with Dad" promo reels (one-off, not part of the weekly/daily runs)
+python reels.py preview           # crop-window contact sheets -> media_cache/reel_preview/
+python reels.py build             # render archive/reels/*.mp4 (needs the gitignored source video)
+python reels.py queue --dry-run   # append reels to scheduled/queue.json on their fixed dates
 ```
 
 There is no test suite or linter configured in this repo.
@@ -151,12 +156,13 @@ There is no test suite or linter configured in this repo.
     `attached_media[0]`. Everything routes through `/feed` (never scheduling
     directly on `/photos`) so Business Suite Planner reports the correct
     `created_time`.
-  - `create_video_post()` — one call to `/{page-id}/videos` with
+  - `create_video_post()` — one upload to `/{page-id}/videos` (on
+    `graph-video.facebook.com`, Meta's video upload host) with
     `scheduled_publish_time` directly, then polls
     `GET /{video_id}?fields=post_id` a few times since the combined
     `{page_id}_{story_id}` post id can lag behind creation.
 - `instagram_poster_api.py` — thin wrapper around the Instagram Graph API
-  v21.0, **posting only, photo posts only**. A genuinely different shape
+  v21.0, **posting only, feed photos and Reels only**. A genuinely different shape
   from `poster_api.py`, not just another method on it:
   - No file upload — Instagram requires a publicly reachable `image_url`
     per post. That's why `archive/images/` and `archive/posts.json` are
@@ -177,6 +183,10 @@ There is no test suite or linter configured in this repo.
     publish-instagram`, see below) rather than folded into the weekly
     `plan`/`schedule` flow that fronts Facebook's scheduling up to 24 days
     out.
+  - `create_reel_post()` — the same container flow with
+    `media_type=REELS` + `video_url` (and `share_to_feed=true`), polled for
+    longer since Instagram transcodes the whole video. Used for queue items
+    of `type: "video"` that carry a pre-built `video_path` (see `reels.py`).
   - `is_aspect_ratio_ok()` checks a local image against Instagram's allowed
     feed aspect-ratio band (4:5 to 1.91:1) — anything outside it is rejected
     by the API at container-creation time, so it's checked locally first
@@ -184,6 +194,16 @@ There is no test suite or linter configured in this repo.
   - `InstagramPosterError` mirrors `FacebookPosterError`'s shape
     (`code`/`error_subcode`/`fbtrace_id`); `ContainerProcessingError` covers
     a container that errors or never finishes processing.
+- `reels.py` — cuts 9:16 promo reels out of the animated "Seasons with Dad"
+  read-aloud (`archive/video/`, gitignored — over GitHub's 100MB limit) into
+  `archive/reels/{id}.mp4`. The source is ~2.04:1, so each scene has its own
+  crop keyframes (window centre as a fraction of source width, smoothstep-
+  eased) that pan between characters rather than one fixed centre crop; cuts
+  land on narration pauses, not scene cuts, and every reel closes on the
+  cover/title card letterboxed over a blurred fill. Each reel has a fixed
+  hand-picked `date` (seasonal, on non-cadence days) and caption; `queue`
+  appends them as `type: "video"` items with `video_path` and claims their
+  days in `planned_days.json` so the photo rotation stays off them.
 - `content.py` — drafts post captions via the Anthropic API
   (`anthropic` SDK, `ANTHROPIC_API_KEY`), constrained to the structured
   `source_facts` passed in per queue item — never a hardcoded template, and
@@ -221,7 +241,8 @@ There is no test suite or linter configured in this repo.
     weekly (see "Daily automation" below), because Instagram has no
     `scheduled_publish_time` equivalent (see `instagram_poster_api.py`
     above) — it walks the same queue file and, for each `type: "photo"`
-    item that is `ig_eligible`, already Facebook-`"scheduled"`, not already
+    item (or `type: "video"` item with a `video_path`, posted as a Reel)
+    that is `ig_eligible`, already Facebook-`"scheduled"`, not already
     published to Instagram (tracked in `scheduled/instagram_state.json`,
     same idempotency pattern as `state.json`), and whose
     `scheduled_publish_time` has actually arrived, builds the image's
@@ -352,6 +373,10 @@ the Page's content ever changes character.
 - `archive/images/{post_id}.jpg` — downloaded image bytes for each kept
   post. Facebook's photo URLs are signed and expire, so the binary is
   always fetched immediately rather than storing the URL.
+- `archive/reels/{id}.mp4` — promo reels built by `reels.py`, checked in
+  (`!archive/reels/` in `.gitignore`) for the same reason as `images/`:
+  `publish-instagram` hands Instagram their `raw.githubusercontent.com` URL
+  as `video_url`. A reel must be committed and pushed before its date.
 - `archive/state.json` — `last_run` timestamp, `cutoff_date` used, and
   `window_fully_covered` (whether pagination reached the cutoff date
   rather than just running out of pages).
@@ -360,7 +385,7 @@ the Page's content ever changes character.
 
 - **Queue file** (`scheduled/queue.json` by default, gitignored) — a JSON
   list of items to schedule, each:
-  `{id, type ("text"|"photo"|"video"), scheduled_publish_time (ISO 8601 or unix timestamp), source_facts, message (optional, skips caption drafting if set), image_path (photo/video), audio_path (video), credit_text (optional, video), ig_eligible (photo only)}`.
+  `{id, type ("text"|"photo"|"video"), scheduled_publish_time (ISO 8601 or unix timestamp), source_facts, message (optional, skips caption drafting if set), image_path (photo/video), audio_path (video), credit_text (optional, video), video_path (optional, video — a ready-made MP4 used instead of building one from image_path + audio_path), ig_eligible (photo, or video with video_path)}`.
   `selector.py plan` is what normally produces entries in this file (one per
   archived post it's decided to schedule, `id` = the post's `post_id`), but a
   hand-built queue file in the same shape works too — `schedule` (and
@@ -440,9 +465,11 @@ credential from `FB_PAGE_TOKEN`, never reused for boosting.
 
 This repo covers Phase 1 (archive), Phase 2 (scheduled posting, including
 `selector.py`'s rotation logic), and Instagram cross-posting
-(`instagram_poster_api.py` / `scheduler.py publish-instagram`) — photo posts
-only, published same-day rather than scheduled ahead (see
-`instagram_poster_api.py` above for why). Do not add Instagram Stories/Reels,
+(`instagram_poster_api.py` / `scheduler.py publish-instagram`) — photo posts,
+plus Reels for pre-built `video_path` items (the `reels.py` promo clips, also
+posted to Facebook as scheduled videos), published same-day rather than
+scheduled ahead (see `instagram_poster_api.py` above for why). Do not add
+Instagram Stories,
 Instagram-only content (not also posted to Facebook), or paid
 promotion/boosting (Marketing API) — those remain out of scope unless
 explicitly asked for.

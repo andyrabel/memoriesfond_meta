@@ -1,9 +1,10 @@
 """
-Thin wrapper around the Instagram Graph API v21.0 — posting only. Parallel to
-poster_api.py (Facebook's posting client) but a genuinely different API shape:
+Thin wrapper around the Instagram Graph API v21.0 — posting only (feed photos
+and Reels). Parallel to poster_api.py (Facebook's posting client) but a
+genuinely different API shape:
 Instagram publishing is a two-step container flow (create a media container,
 poll until Instagram finishes processing it, then publish the container) and
-it requires a publicly reachable image_url rather than a raw file upload —
+it requires a publicly reachable image_url/video_url rather than a raw file upload —
 there is no equivalent of poster_api.py's multipart /photos upload.
 
 There is also no Instagram equivalent of scheduled_publish_time for content
@@ -23,6 +24,11 @@ RETRY_BACKOFF_SECONDS = 5
 
 CONTAINER_POLL_ATTEMPTS = 10
 CONTAINER_POLL_DELAY_SECONDS = 3
+
+# Reels containers take far longer than photos to process (Instagram
+# downloads and transcodes the whole video) — allow up to ~5 minutes.
+REEL_POLL_ATTEMPTS = 30
+REEL_POLL_DELAY_SECONDS = 10
 
 # Instagram feed images must fall within this aspect ratio (width/height) band
 # — anything outside it is rejected at container-creation time.
@@ -115,6 +121,18 @@ class InstagramPoster:
                 time.sleep(delay)
         raise ContainerProcessingError(f"container {creation_id} did not finish processing in time")
 
+    def create_reel_container(self, video_url: str, caption: str) -> str:
+        """POST /{ig-user-id}/media with media_type=REELS + video_url. Same
+        container flow as photos, just a video instead of an image_url.
+        share_to_feed puts it on the profile grid too, not only the Reels tab."""
+        body = self._request("POST", f"{self.ig_user_id}/media", {
+            "media_type": "REELS",
+            "video_url": video_url,
+            "caption": caption[:MAX_CAPTION_LENGTH],
+            "share_to_feed": "true",
+        })
+        return body["id"]
+
     def publish_container(self, creation_id: str) -> str:
         """POST /{ig-user-id}/media_publish with the creation_id. Returns the
         published Instagram media id."""
@@ -130,6 +148,15 @@ class InstagramPoster:
         there is no scheduled_publish_time equivalent for Instagram."""
         creation_id = self.create_media_container(image_url, caption)
         self.wait_for_container_ready(creation_id)
+        media_id = self.publish_container(creation_id)
+        permalink = self.get_permalink(media_id)
+        return {"id": media_id, "creation_id": creation_id, "permalink": permalink}
+
+    def create_reel_post(self, video_url: str, caption: str) -> dict:
+        """Container -> poll -> publish for a Reel. Publishes immediately,
+        same as create_photo_post()."""
+        creation_id = self.create_reel_container(video_url, caption)
+        self.wait_for_container_ready(creation_id, attempts=REEL_POLL_ATTEMPTS, delay=REEL_POLL_DELAY_SECONDS)
         media_id = self.publish_container(creation_id)
         permalink = self.get_permalink(media_id)
         return {"id": media_id, "creation_id": creation_id, "permalink": permalink}

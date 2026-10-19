@@ -35,7 +35,10 @@ queue file works too. Each queue item is a dict:
     "message": null,                # optional pre-written caption; skips drafting if set
     "image_path": "...",            # required for "photo" and "video"
     "audio_path": "...",            # required for "video"
-    "credit_text": null             # optional, burned into the video frame alongside the caption
+    "credit_text": null,            # optional, burned into the video frame alongside the caption
+    "video_path": "..."             # optional, "video" only: a ready-made MP4 (see reels.py) used
+                                    # as-is instead of building one from image_path + audio_path;
+                                    # also what publish-instagram posts as a Reel
   }
 
 State is persisted to scheduled/state.json (gitignored) immediately after each
@@ -147,7 +150,10 @@ def _print_dry_run_calls(item: dict, message: str, scheduled_ts: int):
               f"attached_media[0]={{'media_fbid': <photo_id>}}  "
               f"scheduled_publish_time={scheduled_ts}  published=false")
     elif post_type == "video":
-        print(f"      [build video from {item.get('image_path')!r} + {item.get('audio_path')!r}]")
+        if item.get("video_path"):
+            print(f"      [pre-built video {item['video_path']!r}]")
+        else:
+            print(f"      [build video from {item.get('image_path')!r} + {item.get('audio_path')!r}]")
         print(f"      POST /{{page-id}}/videos  description={message!r}  "
               f"scheduled_publish_time={scheduled_ts}  published=false  source=<built video>")
         print("      GET  /{video_id}?fields=post_id  (polled until the story id resolves)")
@@ -279,8 +285,10 @@ def cmd_publish_instagram(args):
     for item in queue:
         item_id = item["id"]
 
-        if item["type"] != "photo":
-            continue  # Instagram posting only supports photo items for now
+        if item["type"] == "video" and not item.get("video_path"):
+            continue  # only pre-built videos (reels.py) have a public URL to hand Instagram
+        if item["type"] not in ("photo", "video"):
+            continue
         if not item.get("ig_eligible", False):
             print(f"  {item_id}  aspect ratio out of Instagram's allowed range — Facebook-only, skipping")
             continue
@@ -299,17 +307,23 @@ def cmd_publish_instagram(args):
             continue
 
         message = item.get("message") or content.draft_caption(item.get("source_facts", {}), item["type"])
-        image_url = f"{base_url.rstrip('/')}/{item['image_path']}"
+        is_reel = item["type"] == "video"
+        media_url = f"{base_url.rstrip('/')}/{item['video_path' if is_reel else 'image_path']}"
         print(f"  {item_id}  scheduled for {item['scheduled_publish_time']} — due now")
         print(f"    message: {message!r}")
-        print(f"    image_url: {image_url}")
+        print(f"    {'video_url' if is_reel else 'image_url'}: {media_url}")
 
         if args.dry_run:
-            print("    [dry-run] would call: POST /{ig-user-id}/media, poll status, POST /{ig-user-id}/media_publish")
+            media_type = " media_type=REELS" if is_reel else ""
+            print(f"    [dry-run] would call: POST /{{ig-user-id}}/media{media_type}, poll status, "
+                  "POST /{ig-user-id}/media_publish")
             continue
 
         try:
-            result = poster.create_photo_post(image_url, message)
+            if is_reel:
+                result = poster.create_reel_post(media_url, message)
+            else:
+                result = poster.create_photo_post(media_url, message)
         except Exception as e:
             print(f"    failed: {e}")
             ig_state[item_id] = {

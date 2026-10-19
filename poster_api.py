@@ -10,6 +10,8 @@ import time
 import requests
 
 GRAPH_URL = "https://graph.facebook.com/v21.0"
+# Video uploads go to Meta's dedicated upload host, per the /videos docs.
+GRAPH_VIDEO_URL = "https://graph-video.facebook.com/v21.0"
 
 MAX_RETRIES = 5
 RETRY_BACKOFF_SECONDS = 5
@@ -72,8 +74,9 @@ class FacebookPoster:
         self.page_id = page_id
         self.page_token = page_token
 
-    def _request(self, method: str, endpoint: str, data: dict | None = None, files: dict | None = None) -> dict:
-        url = f"{GRAPH_URL}/{endpoint}"
+    def _request(self, method: str, endpoint: str, data: dict | None = None, files: dict | None = None,
+                 base_url: str = GRAPH_URL) -> dict:
+        url = f"{base_url}/{endpoint}"
         data = {**(data or {}), "access_token": self.page_token}
 
         delay = RETRY_BACKOFF_SECONDS
@@ -96,8 +99,8 @@ class FacebookPoster:
     def _get(self, endpoint: str, params: dict) -> dict:
         return self._request("GET", endpoint, data=params)
 
-    def _post(self, endpoint: str, data: dict, files: dict | None = None) -> dict:
-        return self._request("POST", endpoint, data=data, files=files)
+    def _post(self, endpoint: str, data: dict, files: dict | None = None, base_url: str = GRAPH_URL) -> dict:
+        return self._request("POST", endpoint, data=data, files=files, base_url=base_url)
 
     def create_text_post(self, message: str, scheduled_publish_time: int) -> dict:
         """POST /{page-id}/feed with scheduled_publish_time and published=false."""
@@ -135,7 +138,7 @@ class FacebookPoster:
                 "description": message,
                 "scheduled_publish_time": int(scheduled_publish_time),
                 "published": "false",
-            }, files={"source": f})
+            }, files={"source": f}, base_url=GRAPH_VIDEO_URL)
 
         video_id = body["id"]
         post_id = self._poll_video_post_id(video_id)

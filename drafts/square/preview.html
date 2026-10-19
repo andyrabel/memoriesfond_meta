@@ -1,0 +1,745 @@
+<title>Square Post Picker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* Layout: sticky toolbar over a wrapping grid of square post cards, each a mock feed post with keep/skip controls. */
+:root {
+  --bg: #f3f4f7;
+  --surface: #ffffff;
+  --ink: #1d2433;
+  --muted: #5d667a;
+  --line: #dadee7;
+  --accent: #2f55d4;
+  --accent-ink: #ffffff;
+  --keep: #1f8a4c;
+  --keep-bg: #e3f4ea;
+  --skip: #9b3434;
+  --skip-bg: #f7e6e6;
+  --date: #8a5a00;
+  --date-bg: #fff2cc;
+  --tag: #2f55d4;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12151c; --surface: #1b2029; --ink: #e8ebf2; --muted: #9aa3b5; --line: #2d3442;
+    --accent: #7d9bff; --accent-ink: #0d1220; --keep: #6fd39a; --keep-bg: #183324;
+    --skip: #f08f8f; --skip-bg: #3a1e1e; --date: #f2c45a; --date-bg: #3a2f12; --tag: #9db2ff;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12151c; --surface: #1b2029; --ink: #e8ebf2; --muted: #9aa3b5; --line: #2d3442;
+  --accent: #7d9bff; --accent-ink: #0d1220; --keep: #6fd39a; --keep-bg: #183324;
+  --skip: #f08f8f; --skip-bg: #3a1e1e; --date: #f2c45a; --date-bg: #3a2f12; --tag: #9db2ff;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; }
+header h1 { font-family: var(--display); font-weight: 700; font-size: clamp(1.7rem, 3.5vw, 2.4rem); line-height: 1.1; margin: 0 0 6px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 68ch; }
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px);
+  margin: 20px -16px 18px; padding: 10px 16px; border-bottom: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: 600 13px/1 var(--body); padding: 8px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip:focus-visible, .btn:focus-visible, textarea:focus-visible, .thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tally { margin-left: auto; display: flex; gap: 14px; align-items: center; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+.tally b { color: var(--ink); }
+.btn {
+  font: 700 13px/1 var(--body); padding: 9px 14px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.status { font-size: 13px; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 18px; }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  display: flex; flex-direction: column; min-width: 0;
+}
+.card.keep { border-color: var(--keep); box-shadow: 0 0 0 2px var(--keep-bg); }
+.card.skip { opacity: .55; }
+.card-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+.avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font: 700 12px/1 var(--display); flex: none; }
+.who { min-width: 0; }
+.who b { display: block; font-size: 13px; line-height: 1.2; }
+.who span { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.thumb { display: block; padding: 0; border: 0; background: var(--line); cursor: zoom-in; aspect-ratio: 1; width: 100%; max-width: 100%; }
+.thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+.pill { padding: 3px 8px; border-radius: 999px; background: var(--bg); color: var(--muted); }
+.pill.date { background: var(--date-bg); color: var(--date); font-weight: 700; }
+textarea {
+  width: 100%; min-height: 9.5em; resize: vertical; font: 14px/1.45 var(--body); color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+}
+.caption-foot { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.caption-foot .edited { color: var(--accent); font-weight: 700; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: auto; }
+.act { font: 700 14px/1 var(--body); padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.act.keep[aria-pressed="true"] { background: var(--keep-bg); color: var(--keep); border-color: var(--keep); }
+.act.skip[aria-pressed="true"] { background: var(--skip-bg); color: var(--skip); border-color: var(--skip); }
+.empty { padding: 40px 0; text-align: center; color: var(--muted); }
+dialog { border: 0; padding: 0; background: transparent; max-width: min(92vw, 92vh); }
+dialog::backdrop { background: rgba(10, 12, 18, .82); }
+dialog img { display: block; width: 100%; height: auto; border-radius: 6px; }
+dialog p { color: #fff; font-size: 13px; text-align: center; margin: 8px 0 0; }
+.export { margin-top: 28px; }
+.export summary { cursor: pointer; font-weight: 700; }
+.export textarea { min-height: 12em; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; margin-top: 8px; }
+@media (max-width: 640px) { .tally { margin-left: 0; width: 100%; } }
+@media (prefers-reduced-motion: no-preference) { .card { transition: opacity .15s, box-shadow .15s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Square Post Picker</h1>
+    <p>Draft 1080×1080 posts cropped from the page art of four picture books, for both Facebook and Instagram. Mark each one Keep or Skip, and edit any caption you like. Your picks save automatically, and Claude reads them back when you ask for the kept posts to be added to the archive.</p>
+  </header>
+
+  <div class="bar" role="toolbar" aria-label="Filters">
+    <div class="chips" id="bookChips"></div>
+    <div class="chips" id="stateChips"></div>
+    <div class="tally" aria-live="polite">
+      <span><b id="nKeep">0</b> kept</span>
+      <span><b id="nSkip">0</b> skipped</span>
+      <span><b id="nOpen">0</b> undecided</span>
+      <span class="status" id="saveStatus"></span>
+    </div>
+  </div>
+
+  <main class="grid" id="grid"></main>
+  <p class="empty" id="empty" hidden>No posts match these filters.</p>
+
+  <details class="export" id="exportBox">
+    <summary>Export kept posts as JSON</summary>
+    <p class="status">A backup copy of your picks, in the archive's post shape. You can paste it to Claude if saved picks aren't available.</p>
+    <button class="btn" id="copyBtn" type="button">Copy JSON</button>
+    <textarea id="exportText" readonly aria-label="Kept posts as JSON"></textarea>
+  </details>
+</div>
+
+<dialog id="zoom" aria-label="Full-size image">
+  <img id="zoomImg" alt="">
+  <p>1080 × 1080 · click anywhere to close</p>
+</dialog>
+
+<script>
+const POSTS = [
+  {
+    "post_id": "book-sq-ub-04-still-reading",
+    "book": "A Useless Book",
+    "message": "You're still reading? That's... unexpected 👀 Most books want you to learn something. \"A Useless Book\" by Andrew Abel would really rather you didn't.\n\nhttps://memoriesfond.com/\n\n#AUselessBook #FunnyKidsBooks #PictureBooks #ReadAloud #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-04-still-reading.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-06-smart-and-curious",
+    "book": "A Useless Book",
+    "message": "How do birds learn to sing? Why is one and one two? 🤓 Great questions! Just don't expect any answers from \"A Useless Book.\"\n\nhttps://memoriesfond.com/\n\n#CuriousKids #KidsWhoRead #AUselessBook #ChildrensBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-06-smart-and-curious.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-07a-fawn",
+    "book": "A Useless Book",
+    "message": "If you're hunting for answers, you won't find them here 🦌 (Spoiler: that little spotted cutie is a fawn. Oops, you learned something.) From \"A Useless Book.\"\n\nhttps://memoriesfond.com/\n\n#AUselessBook #BabyAnimals #Fawn #KidsBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-07a-fawn.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-07b-stag",
+    "book": "A Useless Book",
+    "message": "Not a fawn. Definitely not a sweet baby deer. Just one very unimpressed stag 😒🦌 \"A Useless Book\" by Andrew Abel.\n\nhttps://memoriesfond.com/\n\n#AUselessBook #FunnyPictureBooks #Deer #ReadAloud #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-07b-stag.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-08-otter",
+    "book": "A Useless Book",
+    "message": "Or that otters use rocks to crack clams near the shore 🦦🐚 Sea otters even tuck a favourite rock into a pouch of loose skin under their arm! (You didn't read that in \"A Useless Book.\")\n\nhttps://memoriesfond.com/\n\n#SeaOtters #AnimalFacts #AUselessBook #KidsBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-08-otter.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-09a-wasps",
+    "book": "A Useless Book",
+    "message": "If you're learning that two and a three make a five... 📝 well, this book won't help. \"A Useless Book\" is proudly fact-free (mostly).\n\nhttps://memoriesfond.com/\n\n#MathForKids #AUselessBook #FunnyKidsBooks #PictureBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-09a-wasps.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-09b-bees",
+    "book": "A Useless Book",
+    "message": "And that wasps build a nest while the bees have a hive 🐝🍯 Sweet as honey, and totally useless. From \"A Useless Book\" by Andrew Abel.\n\nhttps://memoriesfond.com/\n\n#Bees #HoneyBees #AUselessBook #PictureBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-09b-bees.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-10a-dromedary",
+    "book": "A Useless Book",
+    "message": "If you're wanting to learn things, this book's not for you 🐪 Meet the dromedary: one hump, zero interest in your education.\n\nhttps://memoriesfond.com/\n\n#Camels #AnimalFacts #AUselessBook #KidsBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-10a-dromedary.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-10b-bactrian",
+    "book": "A Useless Book",
+    "message": "There's no clue on which camels have one hump or two 🐫 (Psst: Bactrian camels have two. Don't tell anyone you read it here.) From \"A Useless Book.\"\n\nhttps://memoriesfond.com/\n\n#Camels #FunnyKidsBooks #AUselessBook #ReadAloud #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-10b-bactrian.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-11-goldfish",
+    "book": "A Useless Book",
+    "message": "Is it true that two sevens really add to fourteen? Or that goldfish see colors that you've never seen? 🐠🌈 (Yes and yes: goldfish can see ultraviolet light!) From \"A Useless Book.\"\n\nhttps://memoriesfond.com/\n\n#Goldfish #FunFacts #AUselessBook #KidsBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-11-goldfish.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-13-twiddle-thumbs",
+    "book": "A Useless Book",
+    "message": "This small book won't help much with your facts or your sums; you might as well sit and just twiddle your thumbs 👍👍 \"A Useless Book\" by Andrew Abel.\n\nhttps://memoriesfond.com/\n\n#AUselessBook #RhymingBooks #ReadAloud #ChildrensBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-13-twiddle-thumbs.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-14a-paper-planes",
+    "book": "A Useless Book",
+    "message": "You could fold up these pages to make paper planes ✈️ Finally, a practical use for \"A Useless Book\"!\n\nhttps://memoriesfond.com/\n\n#PaperPlanes #KidsCrafts #AUselessBook #FunnyKidsBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-14a-paper-planes.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-14b-summer-rain",
+    "book": "A Useless Book",
+    "message": "Or use them as shelter from light summer rains ☔ Who knew \"A Useless Book\" would make such a handy umbrella?\n\nhttps://memoriesfond.com/\n\n#SummerRain #AUselessBook #PictureBooks #ReadAloud #MemoriesFond",
+    "post_months": "6,7,8",
+    "post_day": null,
+    "image": "images/ub-14b-summer-rain.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-15-wobbly-chair",
+    "book": "A Useless Book",
+    "message": "If you place this small book 'neath a wobbly old chair, then at last it's of use, so just leave it right there 🪑📕\n\nhttps://memoriesfond.com/\n\n#AUselessBook #FunnyKidsBooks #RhymingBooks #ChildrensBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ub-15-wobbly-chair.jpg"
+  },
+  {
+    "post_id": "book-sq-ub-16-read-it-again",
+    "book": "A Useless Book",
+    "message": "If you want something useless with nothing to say, then read it again. That's an order, okay? 📖😄 Happy National Read a Book Day!\n\nhttps://memoriesfond.com/\n\n#NationalReadABookDay #AUselessBook #ReadAloud #KidsWhoRead #MemoriesFond",
+    "post_months": "9",
+    "post_day": "6",
+    "image": "images/ub-16-read-it-again.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-01-three-houses",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "Straw, sticks, and bricks 🏠 You know how the story of the three little pigs began... but do you know what happened next? \"The Big Bad Wolf's Birthday\" by Andrew Abel.\n\nhttps://mybook.to/BadWolf2\n\n#ThreeLittlePigs #TheBigBadWolfsBirthday #FairyTales #ChildrensBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/bw-01-three-houses.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-03-changed-wolf",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "Meet the new Big Bad Wolf: calmed down, changed, best friends with the pigs, and now... a vegan! 🐺🐷🥕\n\nhttps://mybook.to/BadWolf2\n\n#TheBigBadWolfsBirthday #ThreeLittlePigs #Friendship #PictureBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/bw-03-changed-wolf.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-04a-knock",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "There's a knock at the door, and the wolf has a grin. \"Little pigs, little pigs, will you let me in?\" 🚪🐺\n\nhttps://mybook.to/BadWolf2\n\n#TheBigBadWolfsBirthday #FairyTaleRetelling #ReadAloud #ChildrensBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/bw-04a-knock.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-04b-let-you-in",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "\"By the hairs of my chinny chin chin... we will let you in! Let the party begin!\" 🎉🐷🐷🐷\n\nhttps://mybook.to/BadWolf2\n\n#TheBigBadWolfsBirthday #ThreeLittlePigs #BirthdayParty #KidsBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/bw-04b-let-you-in.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-05-balloons",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "They made decorations for all of the rooms. He huffed and he puffed, and he blew up balloons 🎈 Best party helper ever.\n\nhttps://mybook.to/BadWolf2\n\n#TheBigBadWolfsBirthday #PartyDecorations #Balloons #PictureBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/bw-05-balloons.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-06-pinata",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "They hung a piñata, and all took a swing 🪅 And yes, that's a pig in sparkly dollar-store bling.\n\nhttps://mybook.to/BadWolf2\n\n#Pinata #BirthdayParty #TheBigBadWolfsBirthday #KidsBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/bw-06-pinata.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-07-straw-hat",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "Present number one: a hat made out of straw 👒 Doesn't the birthday wolf look dashing?\n\nhttps://mybook.to/BadWolf2\n\n#TheBigBadWolfsBirthday #ThreeLittlePigs #BirthdayPresents #ChildrensBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/bw-07-straw-hat.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-08-rocking-chair",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "Next was a rocking chair made out of sticks 🪑 Somebody's ready for a birthday nap.\n\nhttps://mybook.to/BadWolf2\n\n#TheBigBadWolfsBirthday #ThreeLittlePigs #ReadAloud #PictureBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/bw-08-rocking-chair.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-09-pizza-oven",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "And lastly, a pizza oven made out of bricks 🧱🔥🍕 Happy National Pizza Day from the birthday wolf!\n\nhttps://mybook.to/BadWolf2\n\n#NationalPizzaDay #PizzaOven #TheBigBadWolfsBirthday #KidsBooks #MemoriesFond",
+    "post_months": "2",
+    "post_day": "9",
+    "image": "images/bw-09-pizza-oven.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-10-birthday-cake",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "They made him a cake, wrote in icing his name 🎂 He huffed and he puffed, and he blew out the flame!\n\nhttps://mybook.to/BadWolf2\n\n#BirthdayCake #HappyBirthday #TheBigBadWolfsBirthday #ChildrensBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/bw-10-birthday-cake.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-11-bagpipes",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "They bought him some bagpipes colored red and maroon. He huffed and he puffed, and he blew out a tune 🎶 Happy Burns Night!\n\nhttps://mybook.to/BadWolf2\n\n#BurnsNight #Bagpipes #TheBigBadWolfsBirthday #PictureBooks #MemoriesFond",
+    "post_months": "1",
+    "post_day": "25",
+    "image": "images/bw-11-bagpipes.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-12-dancing",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "He started to practice, and then very soon, they were singing and dancing all 'round the room! 💃🐷🎶\n\nhttps://mybook.to/BadWolf2\n\n#TheBigBadWolfsBirthday #DanceParty #ThreeLittlePigs #ReadAloud #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/bw-12-dancing.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-13-turnip-soup",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "Hot turnip soup for the birthday wolf 🥣 A vegan feast for the merriest group around.\n\nhttps://mybook.to/BadWolf2\n\n#SoupSeason #TheBigBadWolfsBirthday #ThreeLittlePigs #KidsBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/bw-13-turnip-soup.jpg"
+  },
+  {
+    "post_id": "book-sq-bw-14-best-friends",
+    "book": "The Big Bad Wolf's Birthday",
+    "message": "The pigs are so glad that the wolf that was bad has turned out to be... the best friend they've had! 🐺💛🐷\n\nhttps://mybook.to/BadWolf2\n\n#BestFriends #TheBigBadWolfsBirthday #Friendship #ChildrensBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/bw-14-best-friends.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-00-cover",
+    "book": "I Like Earth",
+    "message": "I like Earth. It's the best place to live! 🌍 A rhyming tour of the solar system that always ends up right back home. \"I Like Earth\" by Andrew Abel.\n\nhttps://mybook.to/ILikeEarth\n\n#ILikeEarthBook #SpaceForKids #SolarSystem #ChildrensBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ile-00-cover.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-01-where-to-live",
+    "book": "I Like Earth",
+    "message": "I like Earth. Where would you like to live? 🌎 Comment below with your pick of the planets!\n\nhttps://mybook.to/ILikeEarth\n\n#ILikeEarthBook #PlanetEarth #SpaceForKids #KidsBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ile-01-where-to-live.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-02-mercury",
+    "book": "I Like Earth",
+    "message": "Mercury is near the sun, but it's too hot, that can't be fun! ☀️🥵 A year on Mercury lasts just 88 Earth days.\n\nhttps://mybook.to/ILikeEarth\n\n#Mercury #ILikeEarthBook #SpaceFacts #KidsSpaceBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ile-02-mercury.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-03-venus",
+    "book": "I Like Earth",
+    "message": "Venus is both hot and thick; its poisonous air would make me sick 🤢 Venus spins so slowly that one day there is longer than its whole year!\n\nhttps://mybook.to/ILikeEarth\n\n#Venus #ILikeEarthBook #SpaceFacts #KidsSpaceBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ile-03-venus.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-04-moon",
+    "book": "I Like Earth",
+    "message": "The Moon, it has no atmosphere. I could shout, but you won't hear 🌕 With no wind up there, astronauts' footprints could last for millions of years.\n\nhttps://mybook.to/ILikeEarth\n\n#TheMoon #ILikeEarthBook #SpaceForKids #KidsSpaceBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ile-04-moon.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-05-mars",
+    "book": "I Like Earth",
+    "message": "Mars is cold and has no air; I don't think I would like it there 🔴 Mars is home to Olympus Mons, the tallest volcano in the solar system.\n\nhttps://mybook.to/ILikeEarth\n\n#Mars #ILikeEarthBook #SpaceFacts #KidsSpaceBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ile-05-mars.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-06-jupiter",
+    "book": "I Like Earth",
+    "message": "Jupiter's a big gas ball. No place to jump or bounce a ball 🪐 Its Great Red Spot is a storm bigger than the whole Earth!\n\nhttps://mybook.to/ILikeEarth\n\n#Jupiter #ILikeEarthBook #SpaceFacts #KidsSpaceBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ile-06-jupiter.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-07-saturn",
+    "book": "I Like Earth",
+    "message": "Saturn has no solid ground. There's nowhere I could run around 🪐 Saturn is so light for its size, it would float in a (very, very big) bathtub!\n\nhttps://mybook.to/ILikeEarth\n\n#Saturn #ILikeEarthBook #SpaceFacts #KidsSpaceBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ile-07-saturn.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-08-uranus",
+    "book": "I Like Earth",
+    "message": "Uranus is the coldest planet; I'm pretty sure I could not stand it! 🥶 Uranus is tipped right over, so it rolls around the sun on its side.\n\nhttps://mybook.to/ILikeEarth\n\n#Uranus #ILikeEarthBook #SpaceFacts #KidsSpaceBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ile-08-uranus.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-09-neptune",
+    "book": "I Like Earth",
+    "message": "Neptune's far away and blue, fierce winds and storms. I'd skip this too! 💨💙 One year on Neptune lasts about 165 Earth years.\n\nhttps://mybook.to/ILikeEarth\n\n#Neptune #ILikeEarthBook #SpaceFacts #KidsSpaceBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ile-09-neptune.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-10-pluto",
+    "book": "I Like Earth",
+    "message": "To Pluto in the Kuiper Belt, with rocks and ice that never melt 🤍 See the big heart? It's a giant plain of frozen nitrogen ice.\n\nhttps://mybook.to/ILikeEarth\n\n#Pluto #ILikeEarthBook #SpaceFacts #KidsSpaceBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ile-10-pluto.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-11-oceans",
+    "book": "I Like Earth",
+    "message": "Earth's oceans of blue, and mountains of green, it must be the prettiest planet I've seen 🌊⛰️ Happy World Oceans Day!\n\nhttps://mybook.to/ILikeEarth\n\n#WorldOceansDay #ILikeEarthBook #PlanetEarth #ChildrensBooks #MemoriesFond",
+    "post_months": "6",
+    "post_day": "8",
+    "image": "images/ile-11-oceans.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-12-water",
+    "book": "I Like Earth",
+    "message": "With water to drink, and sweet air to breathe, I don't think it's somewhere that I'd want to leave 💧 Happy World Water Day!\n\nhttps://mybook.to/ILikeEarth\n\n#WorldWaterDay #ILikeEarthBook #PlanetEarth #KidsBooks #MemoriesFond",
+    "post_months": "3",
+    "post_day": "22",
+    "image": "images/ile-12-water.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-13-somewhere-in-space",
+    "book": "I Like Earth",
+    "message": "Is there somewhere in space that I'd like to go? I'll tell you right now, the answer is no! 🌌\n\nhttps://mybook.to/ILikeEarth\n\n#ILikeEarthBook #Galaxy #SpaceForKids #RhymingBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/ile-13-somewhere-in-space.jpg"
+  },
+  {
+    "post_id": "book-sq-ile-14-made-for-us-all",
+    "book": "I Like Earth",
+    "message": "With all of the creatures that live on this ball, it seems like this planet was made for us all 🌍💚 Happy Earth Day!\n\nhttps://mybook.to/ILikeEarth\n\n#EarthDay #ILikeEarthBook #PlanetEarth #ChildrensBooks #MemoriesFond",
+    "post_months": "4",
+    "post_day": "22",
+    "image": "images/ile-14-made-for-us-all.jpg"
+  },
+  {
+    "post_id": "book-sq-si-01-bubba",
+    "book": "Slice & Ice",
+    "message": "Meet Bubba! 🍕 Pepperoni please, not so much the cheese, and a vanilla cone on the side. Straight from New York, home of the thin-crust slice.\n\nhttps://mybook.to/SliceAndIce\n\n#NewYorkPizza #SliceAndIce #PizzaNight #ChildrensBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/si-01-bubba.jpg"
+  },
+  {
+    "post_id": "book-sq-si-02-princess",
+    "book": "Slice & Ice",
+    "message": "Princess likes it all with cheese, and little else besides. She likes a rainbow sherbet, with a unicorn inside! 🦄🌈🍦\n\nhttps://mybook.to/SliceAndIce\n\n#Unicorn #RainbowSherbet #SliceAndIce #KidsBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/si-02-princess.jpg"
+  },
+  {
+    "post_id": "book-sq-si-03-mama",
+    "book": "Slice & Ice",
+    "message": "Mama likes Hawaiian, with a crust that's gluten free, paired with a fresh young coconut 🥥🍍 Pineapple on pizza: yes or no?\n\nhttps://mybook.to/SliceAndIce\n\n#HawaiianPizza #PineapplePizza #SliceAndIce #PictureBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/si-03-mama.jpg"
+  },
+  {
+    "post_id": "book-sq-si-04-papa",
+    "book": "Slice & Ice",
+    "message": "Papa wants Meat Lover's and a long cool soda, half filled with ice 🤠🥤 A Texas-sized order from \"Slice & Ice.\"\n\nhttps://mybook.to/SliceAndIce\n\n#MeatLoversPizza #TexasBBQ #SliceAndIce #PizzaNight #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/si-04-papa.jpg"
+  },
+  {
+    "post_id": "book-sq-si-05-granny",
+    "book": "Slice & Ice",
+    "message": "Granny likes her veggies, and maybe vegan cheese 🫒🍄 Greetings from San Francisco, the most vegan-friendly city around!\n\nhttps://mybook.to/SliceAndIce\n\n#VeggiePizza #SanFrancisco #SliceAndIce #ChildrensBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/si-05-granny.jpg"
+  },
+  {
+    "post_id": "book-sq-si-06-grandpa",
+    "book": "Slice & Ice",
+    "message": "Grandpa likes the combo, with meat and veg and stuff. He likes banana milkshakes; he cannot get enough! 🍌🥤\n\nhttps://mybook.to/SliceAndIce\n\n#BananaMilkshake #ChicagoDeepDish #SliceAndIce #KidsBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/si-06-grandpa.jpg"
+  },
+  {
+    "post_id": "book-sq-si-07-everyone-is-different",
+    "book": "Slice & Ice",
+    "message": "Everyone is different, no one's quite the same 💕 Some like different pizzas, some have different names. From \"Slice & Ice\" by Andrew Abel.\n\nhttps://mybook.to/SliceAndIce\n\n#Family #Kindness #SliceAndIce #ChildrensBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/si-07-everyone-is-different.jpg"
+  },
+  {
+    "post_id": "book-sq-si-08-menu",
+    "book": "Slice & Ice",
+    "message": "So now then, what would you like? Your waiter wants to know 🍕🍦🥤 Tell us your order in the comments!\n\nhttps://mybook.to/SliceAndIce\n\n#PizzaNight #WhatsYourOrder #SliceAndIce #KidsBooks #MemoriesFond",
+    "post_months": null,
+    "post_day": null,
+    "image": "images/si-08-menu.jpg"
+  }
+];
+const BOOKS = [...new Set(POSTS.map(p => p.book))];
+const INITIALS = { "A Useless Book": "UB", "The Big Bad Wolf's Birthday": "BW", "I Like Earth": "IE", "Slice & Ice": "SI" };
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const LS_KEY = "square-post-picks";
+
+// picks: post_id -> {status: "keep"|"skip", message?: string}
+let picks = {};
+let db = null;
+let filterBook = "all";
+let filterState = "all";
+
+try { picks = JSON.parse(localStorage.getItem(LS_KEY) || "{}") || {}; } catch (e) { picks = {}; }
+function saveLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(picks)); } catch (e) {} }
+
+function dateLabel(p) {
+  if (!p.post_months) return null;
+  const months = p.post_months.split(",").map(m => MONTHS[+m - 1]).join(", ");
+  return p.post_day ? `${months} ${p.post_day}` : months;
+}
+function captionOf(p) { return (picks[p.post_id] && picks[p.post_id].message) || p.message; }
+function hashtagCount(text) { return (text.match(/#[\p{L}\p{N}_]+/gu) || []).length; }
+
+function chip(label, pressed, onClick) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip"; b.textContent = label;
+  b.setAttribute("aria-pressed", String(pressed));
+  b.addEventListener("click", onClick);
+  return b;
+}
+function renderChips() {
+  const bc = document.getElementById("bookChips"); bc.replaceChildren();
+  bc.append(chip("All books", filterBook === "all", () => { filterBook = "all"; renderAll(); }));
+  BOOKS.forEach(b => bc.append(chip(b, filterBook === b, () => { filterBook = b; renderAll(); })));
+  const sc = document.getElementById("stateChips"); sc.replaceChildren();
+  [["all","Any status"],["open","Undecided"],["keep","Kept"],["skip","Skipped"]].forEach(([k, l]) =>
+    sc.append(chip(l, filterState === k, () => { filterState = k; renderAll(); })));
+}
+
+function card(p) {
+  const pick = picks[p.post_id] || {};
+  const el = document.createElement("article");
+  el.className = "card" + (pick.status ? " " + pick.status : "");
+  el.dataset.id = p.post_id;
+
+  const head = document.createElement("div"); head.className = "card-head";
+  const av = document.createElement("div"); av.className = "avatar"; av.textContent = INITIALS[p.book] || "MF";
+  const who = document.createElement("div"); who.className = "who";
+  const nm = document.createElement("b"); nm.textContent = "Memories Fond";
+  const bk = document.createElement("span"); bk.textContent = p.book;
+  who.append(nm, bk); head.append(av, who);
+
+  const th = document.createElement("button"); th.type = "button"; th.className = "thumb";
+  th.setAttribute("aria-label", "View full size");
+  const img = document.createElement("img"); img.src = p.image; img.alt = p.book + " page art"; img.loading = "lazy"; img.width = 1080; img.height = 1080;
+  th.append(img);
+  th.addEventListener("click", () => { document.getElementById("zoomImg").src = p.image; document.getElementById("zoom").showModal(); });
+
+  const body = document.createElement("div"); body.className = "body";
+  const meta = document.createElement("div"); meta.className = "meta";
+  const d = dateLabel(p);
+  const dp = document.createElement("span"); dp.className = "pill" + (d ? " date" : ""); dp.textContent = d ? "Only " + d : "Any time of year";
+  const idp = document.createElement("span"); idp.className = "pill"; idp.textContent = p.post_id.replace("book-sq-", "");
+  meta.append(dp, idp);
+
+  const ta = document.createElement("textarea");
+  ta.id = "cap-" + p.post_id; ta.value = captionOf(p); ta.setAttribute("aria-label", "Caption");
+  const foot = document.createElement("div"); foot.className = "caption-foot";
+  const counts = document.createElement("span");
+  const edited = document.createElement("span");
+  function updateCounts() {
+    const t = ta.value;
+    counts.textContent = `${t.length} chars · ${hashtagCount(t)} hashtags`;
+    const isEdited = t !== p.message;
+    edited.textContent = isEdited ? "Edited" : "";
+    edited.className = isEdited ? "edited" : "";
+  }
+  updateCounts();
+  ta.addEventListener("input", updateCounts);
+  ta.addEventListener("change", () => {
+    const cur = picks[p.post_id] || {};
+    const next = { ...cur };
+    if (ta.value.trim() && ta.value !== p.message) next.message = ta.value; else delete next.message;
+    setPick(p.post_id, next);
+  });
+  foot.append(counts, edited);
+
+  const actions = document.createElement("div"); actions.className = "actions";
+  const kb = document.createElement("button"); kb.type = "button"; kb.className = "act keep"; kb.textContent = "Keep";
+  const sb = document.createElement("button"); sb.type = "button"; sb.className = "act skip"; sb.textContent = "Skip";
+  kb.setAttribute("aria-pressed", String(pick.status === "keep"));
+  sb.setAttribute("aria-pressed", String(pick.status === "skip"));
+  const toggle = s => () => {
+    const cur = picks[p.post_id] || {};
+    const next = { ...cur, status: cur.status === s ? undefined : s };
+    if (!next.status) delete next.status;
+    setPick(p.post_id, next);
+  };
+  kb.addEventListener("click", toggle("keep"));
+  sb.addEventListener("click", toggle("skip"));
+  actions.append(kb, sb);
+
+  body.append(meta, ta, foot, actions);
+  el.append(head, th, body);
+  return el;
+}
+
+function visible(p) {
+  const s = (picks[p.post_id] || {}).status || "open";
+  return (filterBook === "all" || p.book === filterBook) && (filterState === "all" || filterState === s);
+}
+function renderGrid() {
+  const g = document.getElementById("grid");
+  const list = POSTS.filter(visible);
+  g.replaceChildren(...list.map(card));
+  document.getElementById("empty").hidden = list.length > 0;
+}
+function renderTally() {
+  let k = 0, s = 0;
+  POSTS.forEach(p => { const st = (picks[p.post_id] || {}).status; if (st === "keep") k++; else if (st === "skip") s++; });
+  document.getElementById("nKeep").textContent = k;
+  document.getElementById("nSkip").textContent = s;
+  document.getElementById("nOpen").textContent = POSTS.length - k - s;
+  const kept = POSTS.filter(p => (picks[p.post_id] || {}).status === "keep").map(p => ({
+    post_id: p.post_id, message: captionOf(p), post_months: p.post_months, post_day: p.post_day, image: p.image,
+  }));
+  document.getElementById("exportText").value = JSON.stringify(kept, null, 2);
+}
+function renderAll() { renderChips(); renderGrid(); renderTally(); }
+
+// Re-render just one card in place (keeps scroll position and textarea focus elsewhere).
+function refreshCard(id) {
+  const old = document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+  const p = POSTS.find(x => x.post_id === id);
+  if (!old || !p) return;
+  if (!visible(p)) old.remove(); else old.replaceWith(card(p));
+  document.getElementById("empty").hidden = !!document.querySelector(".card");
+}
+
+const status = document.getElementById("saveStatus");
+async function setPick(id, value) {
+  if (Object.keys(value).length) picks[id] = value; else delete picks[id];
+  saveLocal();
+  refreshCard(id);
+  renderTally();
+  if (!db) return;
+  status.textContent = "Saving…";
+  try {
+    const ref = db.collection("picks").doc(id);
+    if (Object.keys(value).length) await ref.set({ ...value, updatedAt: new Date().toISOString() });
+    else await ref.delete();
+    status.textContent = "Saved";
+  } catch (e) {
+    status.textContent = e && e.code === "invalid_argument" ? "View only: picks stay in this browser" : "Not saved, try again";
+  }
+}
+
+document.getElementById("zoom").addEventListener("click", e => e.currentTarget.close());
+document.getElementById("copyBtn").addEventListener("click", async () => {
+  const t = document.getElementById("exportText");
+  try { await navigator.clipboard.writeText(t.value); status.textContent = "Copied"; }
+  catch (e) { t.focus(); t.select(); status.textContent = "Press Ctrl+C to copy"; }
+});
+
+renderAll();
+status.textContent = "Picks saved in this browser";
+
+(async () => {
+  if (!window.claude || !window.claude.use) return;
+  db = await window.claude.use("db");
+  if (!db) return;
+  db.collection("picks").onSnapshot(snap => {
+    const remote = {};
+    snap.docs.forEach(d => { const { status: s, message } = d.data(); const v = {}; if (s) v.status = s; if (message) v.message = message; remote[d.id] = v; });
+    // First load: carry over any picks made in this browser before saved picks were available.
+    if (!snap.metadata.fromCache && !window.__merged) {
+      window.__merged = true;
+      Object.entries(picks).forEach(([id, v]) => { if (!remote[id] && Object.keys(v).length) setPick(id, v); });
+    }
+    let changed = false;
+    Object.entries(remote).forEach(([id, v]) => { if (JSON.stringify(picks[id]) !== JSON.stringify(v)) { picks[id] = v; changed = true; } });
+    if (changed) {
+      saveLocal();
+      const active = document.activeElement;
+      if (!(active && active.tagName === "TEXTAREA")) renderGrid();
+      renderTally();
+    }
+    status.textContent = "Picks saved to this page";
+  }, () => { db = null; status.textContent = "Picks saved in this browser"; });
+})();
+</script>
