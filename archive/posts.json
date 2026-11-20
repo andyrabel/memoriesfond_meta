@@ -3591,5 +3591,35 @@
     "image_path": "archive/images/zac-eye-test.jpg",
     "permalink_url": "",
     "status": "active"
+  },
+  {
+    "post_id": "book-sq-other-giant-umbrella",
+    "message": "A book I didn’t write … :-)\n\n#ZacAndTheGiantUmbrella #PictureBooks #ChildrensBooks #KidsBooks #MemoriesFond",
+    "created_time": "2026-11-20",
+    "post_months": null,
+    "post_day": null,
+    "image_path": "archive/images/book-sq-other-giant-umbrella.jpg",
+    "permalink_url": "",
+    "status": "active"
+  },
+  {
+    "post_id": "book-sq-other-leaky-bucket",
+    "message": "A book I didn’t write … :-)\n\n#ZacAndTheLeakyBucket #PictureBooks #ChildrensBooks #KidsBooks #MemoriesFond",
+    "created_time": "2026-11-20",
+    "post_months": null,
+    "post_day": null,
+    "image_path": "archive/images/book-sq-other-leaky-bucket.jpg",
+    "permalink_url": "",
+    "status": "active"
+  },
+  {
+    "post_id": "book-sq-other-i-was-only-looking",
+    "message": "A book I didn’t write … :-)\n\n#IWasOnlyLooking #PictureBooks #ChildrensBooks #KidsBooks #MemoriesFond",
+    "created_time": "2026-11-20",
+    "post_months": null,
+    "post_day": null,
+    "image_path": "archive/images/book-sq-other-i-was-only-looking.jpg",
+    "permalink_url": "",
+    "status": "active"
   }
 ]
